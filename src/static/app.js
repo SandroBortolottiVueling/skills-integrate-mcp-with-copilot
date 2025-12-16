@@ -3,6 +3,70 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
+  
+  // Authentication variables
+  let currentTeacher = null;
+  let teacherPassword = null;
+  const loginBtn = document.getElementById("login-btn");
+  const loginModal = document.getElementById("login-modal");
+  const loginForm = document.getElementById("login-form");
+  const closeBtn = document.querySelector(".close");
+  const logoutBtn = document.getElementById("logout-btn");
+  const teacherInfo = document.getElementById("teacher-info");
+  const loginMessage = document.getElementById("login-message");
+
+  // Authentication event listeners
+  loginBtn.addEventListener("click", () => {
+    loginModal.classList.remove("hidden");
+  });
+
+  closeBtn.addEventListener("click", () => {
+    loginModal.classList.add("hidden");
+    loginForm.reset();
+    loginMessage.classList.add("hidden");
+  });
+
+  logoutBtn.addEventListener("click", () => {
+    currentTeacher = null;
+    teacherPassword = null;
+    loginBtn.classList.remove("hidden");
+    teacherInfo.classList.add("hidden");
+    messageDiv.classList.add("hidden");
+    messageDiv.textContent = "";
+  });
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    try {
+      const response = await fetch(`/auth/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, {
+        method: "POST"
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        currentTeacher = username;
+        teacherPassword = password;
+        loginModal.classList.add("hidden");
+        loginForm.reset();
+        loginBtn.classList.add("hidden");
+        document.getElementById("teacher-name").textContent = username;
+        teacherInfo.classList.remove("hidden");
+        loginMessage.classList.add("hidden");
+      } else {
+        loginMessage.textContent = "Invalid username or password";
+        loginMessage.style.color = "red";
+        loginMessage.classList.remove("hidden");
+      }
+    } catch (error) {
+      loginMessage.textContent = "Login error. Please try again.";
+      loginMessage.style.color = "red";
+      loginMessage.classList.remove("hidden");
+      console.error("Login error:", error);
+    }
+  });
 
   // Function to fetch activities from API
   async function fetchActivities() {
@@ -17,6 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
       Object.entries(activities).forEach(([name, details]) => {
         const activityCard = document.createElement("div");
         activityCard.className = "activity-card";
+
 
         const spotsLeft =
           details.max_participants - details.participants.length;
@@ -73,11 +138,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const activity = button.getAttribute("data-activity");
     const email = button.getAttribute("data-email");
 
+    if (!currentTeacher) {
+      messageDiv.textContent = "Only teachers can unregister students. Please login first.";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+      return;
+    }
+
     try {
       const response = await fetch(
         `/activities/${encodeURIComponent(
           activity
-        )}/unregister?email=${encodeURIComponent(email)}`,
+        )}/unregister?email=${encodeURIComponent(email)}&teacher_username=${encodeURIComponent(currentTeacher)}&teacher_password=${encodeURIComponent(teacherPassword)}`,
         {
           method: "DELETE",
         }
@@ -114,6 +186,13 @@ document.addEventListener("DOMContentLoaded", () => {
   signupForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
+    if (!currentTeacher) {
+      messageDiv.textContent = "Only teachers can register students. Please login first.";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+      return;
+    }
+
     const email = document.getElementById("email").value;
     const activity = document.getElementById("activity").value;
 
@@ -121,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const response = await fetch(
         `/activities/${encodeURIComponent(
           activity
-        )}/signup?email=${encodeURIComponent(email)}`,
+        )}/signup?email=${encodeURIComponent(email)}&teacher_username=${encodeURIComponent(currentTeacher)}&teacher_password=${encodeURIComponent(teacherPassword)}`,
         {
           method: "POST",
         }
